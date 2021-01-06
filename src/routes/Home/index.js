@@ -5,7 +5,15 @@ import countdown from "countdown";
 
 import { CallContext } from "../../context/callProvider";
 
-import { callControls, container, videoContainer } from "./styles";
+import { callControls, container, container2, videoContainer } from "./styles";
+
+export const Redirect = () => {
+  return (
+    <div className={container2}>
+      <h2>Please redirect to /sip-call route</h2>
+    </div>
+  );
+};
 
 const Home = () => {
   const query = new URLSearchParams(useLocation().search);
@@ -170,7 +178,11 @@ const Home = () => {
       </div>
     );
   }
-  return <div className={container}>Hello World</div>;
+  return (
+    <div className={container2}>
+      <h2>Hello World</h2>
+    </div>
+  );
 };
 
 export default Home;

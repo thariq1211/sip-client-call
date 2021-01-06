@@ -7,6 +7,13 @@ const container = css`
   padding: 10px;
 `;
 
+export const container2 = css`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 50px;
+`;
+
 const videoContainer = css`
   display: flex;
   padding: 10px;
