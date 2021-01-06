@@ -66,7 +66,6 @@ const CallProvider = ({ children }) => {
         const extensionCaller = temp.substring(0, temp.indexOf("*"));
         const uniqueId = temp.substring(temp.indexOf("*") + 1);
         sessionStorage.setItem("uniqueId", uniqueId);
-        console.log(temp);
         dispatch({ type: actions.SETCALLER, payload: temp });
         Cookie.set("extension", extensionCaller);
         dispatch({ type: actions.INCOMING_START });
@@ -295,6 +294,62 @@ const CallProvider = ({ children }) => {
     dispatch({ type: actions.DECLINE_CALL });
   };
 
+  const referCall = () => {
+    if (sessionCallState) sessionCallState.sendDTMF("#1");
+  };
+
+  const sendTone = tones => {
+    if (sessionCallState && sessionCallState.sendDTMF)
+      sessionCallState.sendDTMF(tones);
+    dispatch({ type: actions.TRANSFER_CALL });
+  };
+
+  const referCallExt = ext => {
+    const options = {
+      eventHandlers: {
+        requestSucceeded(e) {
+          console.log(`[requestSucceeded] ${e}`);
+          /** saat mencoba call dengan sukses (extension aktif) akan berjalan */
+        },
+        requestFailed(e) {
+          console.log(`[requestFailed] ${e}`);
+          /** saat mencoba call gagal (extension nonaktif / tidak teregister) akan berjalan */
+          setTimeout(() => {
+            videoCallStop();
+          }, 1000);
+        },
+        trying(e) {
+          console.log(`[trying] ${e}`);
+          /** setelah requestSucceeded akan dijalankan */
+        },
+        progress(e) {
+          console.log(`[progress] ${e}`);
+          /** setelah trying akan dijalankan */
+        },
+        accepted(e) {
+          console.log(`[accepted] ${e}`);
+          /** setelah tujuan answer call akan dijalankan */
+          setTimeout(() => {
+            videoCallStop();
+          }, 1000);
+        },
+        failed(e) {
+          console.log(`[failed] ${e}`);
+          /** setelah tujuan reject call akan dijalankan */
+          setTimeout(() => {
+            videoCallStop();
+          }, 1000);
+        }
+      }
+    };
+
+    if (sessionCallState) sessionCallState.refer(ext, options);
+    setTimeout(() => {
+      videoCallStop();
+    }, 2000);
+    dispatch({ type: actions.TRANSFER_CALL });
+  };
+
   const endCall = () => {
     if (sessionCallState && sessionCallState.terminate)
       sessionCallState.terminate();
@@ -319,6 +374,9 @@ const CallProvider = ({ children }) => {
     registerSip,
     unregisterSip,
     acceptCall,
+    referCallExt,
+    referCall,
+    sendTone,
     holdCall,
     unholdCall,
     rejectCall,

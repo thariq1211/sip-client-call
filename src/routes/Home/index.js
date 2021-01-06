@@ -18,11 +18,16 @@ const Home = () => {
     holdCall,
     unholdCall,
     rejectCall,
+    referCallExt,
+    referCall,
+    sendTone,
     endCall
   } = useContext(CallContext);
-  const { ongoingCall, incomingCall, callerId } = callState;
+  const { ongoingCall, incomingCall, callerId, onHold } = callState;
   const [status, setStatus] = useState();
   const [timer, setTimer] = useState();
+  const [extToTransfer, setExtToTransfer] = useState();
+  const [dtmf, setDtmf] = useState();
   const timerRef = useRef();
   const sipConfig = option => ({
     extension: option.has("extension") ? option.get("extension") : "",
@@ -44,6 +49,7 @@ const Home = () => {
       );
     } else if (timerRef.current) {
       clearInterval(timerRef.current);
+      alert(`Call duration ${timer}`);
       setTimer(null);
     }
   }, [ongoingCall]);
@@ -64,34 +70,77 @@ const Home = () => {
     }
   }, [status]);
 
+  const transferExtension = ext => {
+    if (extToTransfer) {
+      referCallExt(ext);
+    } else {
+      alert("input extension tujuan");
+    }
+  };
+
+  const transferQueue = tone => {
+    if (dtmf) {
+      referCall();
+      setTimeout(() => sendTone(tone));
+    } else {
+      alert("input queue tujuan");
+    }
+  };
+
   const incomingUI = (
     <div className={callControls}>
       <button type="button" onClick={acceptCall}>
-        answer
+        Answer
       </button>
       <span>{`Call from ${callerId}`}</span>
       <button type="button" onClick={rejectCall}>
-        reject
+        Reject
       </button>
     </div>
   );
 
   const ongoingUI = (
-    <div className={callControls}>
-      <input placeholder="input dtmf" />
-      <button type="button">transfer queue</button>
-      <input placeholder="input extension" />
-      <button type="button">transfer extension</button>
-      <button type="button" onClick={holdCall}>
-        hold
-      </button>
-      <button type="button" onClick={unholdCall}>
-        unhold
-      </button>
-      <button type="button" onClick={endCall}>
-        hangup
-      </button>
-    </div>
+    <>
+      {onHold ? <span>hold</span> : <span>unhold</span>}
+      <div className={callControls}>
+        <input
+          placeholder="Input DTMF"
+          onChange={e => setDtmf(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            transferQueue(dtmf);
+          }}
+        >
+          Transfer Queue
+        </button>
+        <input
+          placeholder="Input Extension"
+          onChange={e => setExtToTransfer(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            transferExtension(extToTransfer);
+          }}
+        >
+          Transfer Extension
+        </button>
+        {onHold ? (
+          <button type="button" onClick={unholdCall}>
+            unhold
+          </button>
+        ) : (
+          <button type="button" onClick={holdCall}>
+            Hold
+          </button>
+        )}
+        <button type="button" onClick={endCall}>
+          hangup
+        </button>
+      </div>
+    </>
   );
 
   if (extension && password) {
@@ -99,19 +148,18 @@ const Home = () => {
       <div className={container}>
         <div className={callControls}>
           <strong>{`Status: ${callState.sipStatus}`}</strong>
-          <br />
-          <select
-            onChange={e => {
-              setStatus(e.target.value);
-            }}
-          >
-            <option value="null" defaultValue>
-              Select Status
-            </option>
-            <option value={1}>Register</option>
-            <option value={0}>UnRegister</option>
-          </select>
         </div>
+        <select
+          onChange={e => {
+            setStatus(e.target.value);
+          }}
+        >
+          <option value="null" defaultValue>
+            Select Status
+          </option>
+          <option value={1}>Register</option>
+          <option value={0}>UnRegister</option>
+        </select>
         <div className={videoContainer}>
           <video id="remoteView" playsInline autoPlay poster={poster} />
           <video id="selfView" playsInline autoPlay muted poster={poster} />
@@ -122,7 +170,7 @@ const Home = () => {
       </div>
     );
   }
-  return <div className={container}>hello</div>;
+  return <div className={container}>Hello World</div>;
 };
 
 export default Home;
