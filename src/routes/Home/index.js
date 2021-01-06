@@ -109,7 +109,7 @@ const Home = () => {
 
   const ongoingUI = (
     <>
-      {onHold ? <span>hold</span> : <span>unhold</span>}
+      {onHold && <span>Call onHold</span>}
       <div className={callControls}>
         <input
           placeholder="Input DTMF"
