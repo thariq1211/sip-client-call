@@ -65,7 +65,6 @@ const CallProvider = ({ children }) => {
         );
         const extensionCaller = temp.substring(0, temp.indexOf("*"));
         const uniqueId = temp.substring(temp.indexOf("*") + 1);
-        sessionStorage.setItem("uniqueId", uniqueId);
         dispatch({ type: actions.SETCALLER, payload: temp });
         Cookie.set("extension", extensionCaller);
         dispatch({ type: actions.INCOMING_START });
@@ -246,7 +245,6 @@ const CallProvider = ({ children }) => {
     // remoteView.removeAttribute("src"); // empty source
     // remoteView.load();
 
-    sessionStorage.setItem("incomingCall", "false");
     // deleteExt(Cookie.get("extension"));
     dispatch({ type: actions.END_CALL });
   };
@@ -256,7 +254,6 @@ const CallProvider = ({ children }) => {
     incomingCallRingTone.pause();
 
     // GET EXTENTION USER ID
-    sessionStorage.setItem("hidden", "1");
     dispatch({ type: actions.ACCEPT_CALL });
   };
 
