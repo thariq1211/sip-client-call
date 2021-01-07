@@ -89,7 +89,7 @@ const Home = () => {
   const transferQueue = tone => {
     if (dtmf) {
       referCall();
-      setTimeout(() => sendTone(tone));
+      setTimeout(() => sendTone(tone), 2000);
     } else {
       alert("input queue tujuan");
     }
@@ -172,7 +172,7 @@ const Home = () => {
           <video id="remoteView" playsInline autoPlay poster={poster} />
           <video id="selfView" playsInline autoPlay muted poster={poster} />
         </div>
-        <strong>{ongoingCall && timer}</strong>
+        {ongoingCall && <strong>{timer}</strong>}
         {ongoingCall && ongoingUI}
         {incomingCall && incomingUI}
       </div>
