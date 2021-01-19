@@ -168,6 +168,7 @@ const Home = () => {
           <option value={1}>Register</option>
           <option value={0}>UnRegister</option>
         </select>
+        <video id="recordingVideo" hidden autoPlay muted />
         <div className={videoContainer}>
           <video id="remoteView" playsInline autoPlay poster={poster} />
           <video id="selfView" playsInline autoPlay muted poster={poster} />

@@ -1,6 +1,6 @@
 /* eslint-disable no-use-before-define */
 /* eslint-disable no-unused-vars */
-import React, { useEffect, useReducer, useState } from "react";
+import React, { useEffect, useReducer, useRef, useState } from "react";
 import { node } from "prop-types";
 import JsSIP from "jssip";
 import Cookie from "js-cookie";
@@ -21,13 +21,20 @@ const CallProvider = ({ children }) => {
   const incomingCallRingTone = new Audio(ringtone);
   incomingCallRingTone.loop = true;
   const [state, dispatch] = useReducer(callReducer, initialState);
-
+  const { ongoingCall, isRegistered } = state;
   const [params, setParams] = useState();
   const [rtcSessionState, updateRtcSession] = useState();
   const [sessionCallState, updateCallSession] = useState();
+  const [mediaStreamObj, updateMediaObj] = useState();
+
+  const chunksRef = useRef();
+  const recordRef = useRef();
+  const mediaObjRef = useRef();
 
   const extension = params ? params.extension : undefined;
   const password = params ? params.password : undefined;
+
+  if (extension) sessionStorage.setItem("extension_user", extension);
 
   const initJsSIP = () => {
     JsSIP.debug.enable("JsSIP:WebSocketInterface");
@@ -77,10 +84,9 @@ const CallProvider = ({ children }) => {
         callSession.on("confirmed", () => {
           console.log("[CALL CONFIRMED]");
           handleSession(callSession);
-          // const recorder = new Recording(callSession);
-          // recordRef.current = recorder;
-          // dispatchRecord(recorder);
-          // recorder.startRecording();
+          const recorder = new Recording(callSession);
+          recordRef.current = recorder;
+          recorder.startRecording();
           // this handler will be called for incoming calls too
         });
 
@@ -249,6 +255,158 @@ const CallProvider = ({ children }) => {
     dispatch({ type: actions.END_CALL });
   };
 
+  const downloadFile = (blob, filename) => {
+    try {
+      const hLink = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = hLink;
+      a.download = filename;
+      a.click();
+    } catch (error) {
+      console.error(error.message);
+    }
+  };
+
+  const getDate = () => {
+    const newDate = new Date()
+      .toString()
+      .split(" ")
+      .slice(1, 5);
+    const months = {
+      Jan: "01",
+      Feb: "02",
+      Mar: "03",
+      Apr: "04",
+      May: "05",
+      Jun: "06",
+      Jul: "07",
+      Aug: "08",
+      Sep: "09",
+      Oct: "10",
+      Nov: "11",
+      Dec: "12"
+    };
+    newDate[0] = months[newDate[0]];
+    [newDate[0], newDate[1], newDate[2]] = [newDate[2], newDate[0], newDate[1]];
+    const time1 = newDate[3];
+    const time2 = time1
+      .split(":")
+      .slice(0, 2)
+      .join("");
+    return newDate.slice(0, 3).join("");
+  };
+
+  function MixAudioStreams(MultiAudioTackStream) {
+    // Takes in a MediaStream with any mumber of audio tracks and mixes them together
+
+    let audioContext = null;
+    try {
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioContext = new AudioContext();
+    } catch (e) {
+      console.warn("AudioContext() not available, cannot record");
+      return MultiAudioTackStream;
+    }
+    const mixedAudioStream = audioContext.createMediaStreamDestination();
+    MultiAudioTackStream.getAudioTracks().forEach(function(audioTrack) {
+      const srcStream = new MediaStream();
+      srcStream.addTrack(audioTrack);
+      const streamSourceNode = audioContext.createMediaStreamSource(srcStream);
+      streamSourceNode.connect(mixedAudioStream);
+    });
+
+    return mixedAudioStream.stream;
+  }
+
+  function Recording(session) {
+    chunksRef.current = [];
+    const localStream = session.connection.getLocalStreams()[0];
+    const remoteStream = session.connection.getRemoteStreams()[0];
+    const audioLocal = localStream.getAudioTracks()[0];
+    const audioRemote = remoteStream.getAudioTracks()[0];
+    let options = { mimeType: "video/webm;codecs=vp8,opus" };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+      console.error(`${options.mimeType} is not supported`);
+      options = { mimeType: "video/webm;codecs=vp8,opus" };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        console.error(`${options.mimeType} is not supported`);
+        options = { mimeType: "video/webm" };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          console.error(`${options.mimeType} is not supported`);
+          options = { mimeType: "" };
+        }
+      }
+    }
+
+    const audioStream = new MediaStream();
+    audioStream.addTrack(audioRemote);
+    audioStream.addTrack(audioLocal);
+
+    const mediaStream = new MediaStream([
+      mediaObjRef.current.getVideoTracks()[0],
+      MixAudioStreams(audioStream).getAudioTracks()[0]
+    ]);
+    const mediaRecord = new MediaRecorder(mediaStream, options);
+
+    this.startRecording = function() {
+      try {
+        mediaRecord.start();
+      } catch (error) {
+        console.error(error.message);
+      }
+    };
+    this.stopRecording = function() {
+      try {
+        mediaRecord.stop();
+      } catch (error) {
+        console.error(error.message);
+      }
+    };
+    mediaRecord.ondataavailable = ev => {
+      console.log(`Push data`);
+      // console.log(ev.data);
+      chunksRef.current.push(ev.data);
+    };
+
+    mediaRecord.onerror = e => {
+      console.log("error");
+      console.log(e);
+    };
+    mediaRecord.onstart = () => {
+      console.log(`Recording started`);
+    };
+    mediaRecord.onstop = ev => {
+      console.log(`Recording stopped`);
+      console.log(chunksRef.current);
+      const blob = new Blob(chunksRef.current, { type: "video/mp4" });
+      const out = Cookie.get("out");
+      const agent = sessionStorage.getItem("extension_user");
+      const client = Cookie.get("extension");
+      const filename =
+        out === "true"
+          ? `OUT-AGENT${agent}-CLIENT${client}-${getDate()}`
+          : `IN-AGENT${agent}-CLIENT${client}-${getDate()}`;
+      downloadFile(blob, `${filename}.mp4`);
+      chunksRef.current = [];
+    };
+  }
+
+  const stopCapture = _evt => {
+    const videoElem = document.getElementById("recordingVideo");
+    try {
+      const tracks = videoElem.srcObject.getTracks();
+
+      tracks.forEach(track => track.stop());
+      videoElem.srcObject = null;
+    } catch (error) {
+      console.error(error.message);
+    }
+  };
+
+  /**
+   * LIST SIP FUNCTION
+   */
+
   const acceptedCall = () => {
     console.log("[CALL ACCEPTED]");
     incomingCallRingTone.pause();
@@ -256,10 +414,6 @@ const CallProvider = ({ children }) => {
     // GET EXTENTION USER ID
     dispatch({ type: actions.ACCEPT_CALL });
   };
-
-  /**
-   * LIST SIP FUNCTION
-   */
 
   const holdCall = () => {
     if (sessionCallState && sessionCallState.hold) sessionCallState.hold();
@@ -361,8 +515,76 @@ const CallProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    if (recordRef.current && !ongoingCall) {
+      recordRef.current.stopRecording();
+    } else {
+      console.log("Recording not started yet!");
+    }
+  }, [ongoingCall]);
+
+  useEffect(() => {
     if (extension && password) initJsSIP();
   }, [extension, password]);
+
+  useEffect(() => {
+    if (isRegistered) {
+      stopCapture();
+      if (
+        navigator.getUserMedia ||
+        navigator.webkitGetUserMedia ||
+        navigator.mozGetUserMedia
+      ) {
+        const constraintObj = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100
+          },
+          video: { mediaSource: "screen" }
+        };
+
+        navigator.mediaDevices
+          .getDisplayMedia(constraintObj)
+          .then(stream => {
+            const video = document.getElementById("recordingVideo");
+
+            if ("srcObject" in video) {
+              video.srcObject = stream;
+            } else {
+              video.src = window.URL.createObjectURL(stream);
+            }
+            updateMediaObj(stream);
+            mediaObjRef.current = stream;
+          })
+          .catch(error => {
+            alert("Error accessing media devices.", error.message);
+            (function handleError(constrain) {
+              navigator.mediaDevices
+                .getDisplayMedia(constrain)
+                .then(stream => {
+                  const video = document.querySelector("video");
+
+                  if ("srcObject" in video) {
+                    video.srcObject = stream;
+                  } else {
+                    video.src = window.URL.createObjectURL(stream);
+                  }
+                  updateMediaObj(stream);
+                  mediaObjRef.current = stream;
+                })
+                .catch(_error => {
+                  alert("Error accessing media devices.", _error.message);
+                  handleError(constraintObj);
+                });
+            })();
+          });
+      } else {
+        console.error("BROWSER NOT SUPPORTED");
+      }
+    } else {
+      stopCapture();
+    }
+  }, [isRegistered]);
 
   const exported = {
     params,

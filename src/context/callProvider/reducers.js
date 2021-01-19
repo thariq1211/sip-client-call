@@ -19,9 +19,19 @@ export const callReducer = (state, action) => {
     case actions.DISCONNECTED:
       return { ...state, sipCode: "00", sipStatus: "Disconnected" };
     case actions.REGISTERED:
-      return { ...state, sipCode: "03", sipStatus: "Registered" };
+      return {
+        ...state,
+        sipCode: "03",
+        sipStatus: "Registered",
+        isRegistered: true
+      };
     case actions.UNREGISTERED:
-      return { ...state, sipCode: "05", sipStatus: "Unregistered" };
+      return {
+        ...state,
+        sipCode: "05",
+        sipStatus: "Unregistered",
+        isRegistered: false
+      };
     case actions.REGISTERFAILED:
       return { ...state, sipCode: "04", sipStatus: "Register Failed" };
     case actions.REGISTER:
