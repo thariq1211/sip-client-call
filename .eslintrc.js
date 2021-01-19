@@ -26,6 +26,7 @@ module.exports = {
       "error",
       { functions: true, classes: true, variables: true }
     ],
+    "react/no-this-in-sfc": "warn",
     "no-bitwise": "off",
     "no-console": "off",
     "no-irregular-whitespace": "error",
